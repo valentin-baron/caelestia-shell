@@ -78,6 +78,18 @@ Column {
         command: Config.session.commands.reboot
 
         KeyNavigation.up: hibernate
+        KeyNavigation.down: windows
+    }
+
+    // Not part of Config.session — SessionCommands is a fixed struct in the
+    // plugin, so shell.json can't add keys to it.
+    SessionButton {
+        id: windows
+
+        icon: "desktop_windows"
+        command: [`${Paths.home}/.local/bin/reboot-to-windows`]
+
+        KeyNavigation.up: reboot
     }
 
     component SessionButton: IconButton {
