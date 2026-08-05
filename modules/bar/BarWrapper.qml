@@ -6,6 +6,7 @@ import Caelestia.Config
 import qs.components
 import qs.utils
 import qs.modules.bar.popouts as BarPopouts
+import "components"
 
 Item {
     id: root
@@ -75,7 +76,8 @@ Item {
         id: content
 
         anchors.top: parent.top
-        anchors.bottom: parent.bottom
+        anchors.bottom: reload.top
+        anchors.bottomMargin: Tokens.spacing.medium
         anchors.right: parent.right
 
         active: root.shouldBeVisible
@@ -87,5 +89,20 @@ Item {
             popouts: root.popouts // qmllint disable incompatible-type
             fullscreen: root.fullscreen
         }
+    }
+
+    // Outside the Bar's ColumnLayout on purpose. This Item clips, and the column is anchored to
+    // the full height of the screen, so a column whose fixed-size children add up to more than
+    // that has its tail silently cut off -- and the reload button, being last, was what went.
+    // Anchored here it keeps its place whatever the tray does, and the column gives up the space
+    // it occupies instead of overlapping it.
+    Reload {
+        id: reload
+
+        anchors.bottom: parent.bottom
+        anchors.horizontalCenter: content.horizontalCenter
+        anchors.bottomMargin: Tokens.padding.large
+
+        visible: root.shouldBeVisible
     }
 }

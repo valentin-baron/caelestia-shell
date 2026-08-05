@@ -1,7 +1,9 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import Caelestia.Config
 import qs.components
+import qs.components.controls
 import qs.services
 
 Item {
@@ -37,6 +39,19 @@ Item {
             implicitHeight: 1
 
             color: Colours.tPalette.m3outlineVariant
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+
+            Item {
+                Layout.fillWidth: true
+            }
+
+            IconButton {
+                icon: "refresh"
+                onClicked: Quickshell.reload(true)
+            }
         }
     }
 }
