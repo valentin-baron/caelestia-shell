@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import Quickshell.Bluetooth
 import Caelestia.Components
 import Caelestia.Config
@@ -137,6 +138,28 @@ StyledRect {
                         icon: "notifications_off"
                         checked: Notifs.dnd
                         onClicked: Notifs.dnd = !Notifs.dnd
+                    }
+                }
+                DelegateChoice {
+                    roleValue: "reload"
+                    delegate: Toggle {
+                        icon: "refresh"
+                        inactiveOnColour: Colours.palette.m3onSurfaceVariant
+                        isToggle: false
+                        // Detached on purpose: the restart tears this process down, and a child
+                        // spawned the normal way would die with the shell before systemd acts.
+                        onClicked: Quickshell.execDetached(["systemctl", "--user", "restart", "caelestia-shell.service"])
+                    }
+                }
+                DelegateChoice {
+                    roleValue: "update"
+                    delegate: Toggle {
+                        icon: "upgrade"
+                        inactiveOnColour: Colours.palette.m3onSurfaceVariant
+                        isToggle: false
+                        // Fire-and-forget: the script reports through notifications, and runs
+                        // detached so pressing reload next door cannot take it down mid-install.
+                        onClicked: Quickshell.execDetached([Quickshell.env("HOME") + "/.config/hypr/Scripts/update-shell"])
                     }
                 }
                 DelegateChoice {
