@@ -233,7 +233,8 @@ For example, to disable the bar on DP-1:
 >
 > - `appearance` (`anim`, `transparency`)
 > - `general` (`logo`, `apps`, `idle`, `battery`)
-> - `bar.workspaces` (`perMonitorWorkspaces`, `specialWorkspaceIcons`, `windowIcons`)
+> - `bar.workspaces` (`perMonitorWorkspaces`, `specialWorkspaceIcons`, `windowIcons`,
+>   `hiddenWindows`)
 > - `bar.tray` (`iconSubs`, `hiddenIcons`)
 > - `dashboard` (`mediaUpdateInterval`, `resourceUpdateInterval`)
 > - `launcher` (`specialPrefix`, `actionPrefix`, `enableDangerousActions`, `vimKeybinds`,
@@ -451,6 +452,15 @@ For example, to disable the bar on DP-1:
                 {
                     "regex": "steam(_app_(default|[0-9]+))?",
                     "icon": "sports_esports"
+                }
+            ],
+            "hiddenWindows": [
+                {
+                    "class": "xwaylandvideobridge"
+                },
+                {
+                    "class": "jitsi-meet",
+                    "title": "Screen Sharing Tracker"
                 }
             ]
         },
