@@ -226,12 +226,29 @@ Item {
                     required property var modelData
                     required property int index // Needed, LazyListView will fail to set it if it doesn't exist
 
+                    // Which of these has focus is the one thing the row did not say. It matters most
+                    // where the windows overlap -- a monocle layout, a fullscreened window, a stack
+                    // being cycled -- since then this row is the only indication of where in the
+                    // stack you are, the screen itself showing only one of them.
+                    //
+                    // Compared by address rather than by object identity: these come out of a
+                    // ScriptModel, which gives no guarantee of handing back the same instance the
+                    // service holds, and an address is how the rest of the shell names a toplevel.
+                    readonly property bool isActive: modelData?.address !== undefined && modelData.address === Hypr.activeToplevel?.address
+
                     grade: 0
                     horizontalAlignment: Text.AlignHCenter
                     text: Icons.getAppCategoryIcon(modelData.lastIpcObject.class, "terminal")
                     color: root.onOtherMonitor ? root.offMonitorColour : Colours.palette.m3onSurfaceVariant
 
-                    opacity: LazyListView.adding || LazyListView.removing ? 0 : 1
+                    // Dimming the others rather than recolouring the active one. The palette is
+                    // generated per wallpaper, and nothing keeps two of its roles apart: this
+                    // machine's scheme puts m3primary at #c2c1ff and m3onSurfaceVariant at #c8c5d1,
+                    // near enough that a colour swap between them is invisible at icon size. Nor
+                    // `fill`, which would do nothing for a symbol with no interior to fill -- the
+                    // `code` glyph is a pair of chevrons. Opacity cannot collide with a palette and
+                    // holds for every glyph. The list's own add/remove fade still wins over it.
+                    opacity: LazyListView.adding || LazyListView.removing ? 0 : isActive ? 1 : 0.45
 
                     Behavior on opacity {
                         Anim {
