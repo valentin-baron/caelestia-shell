@@ -17,6 +17,34 @@ Singleton {
     readonly property var monitors: Hyprland.monitors
     readonly property bool usingLua: Hyprland.usingLua
 
+    // Windows that exist only so something else can work: the Xwayland video bridge, which is what
+    // lets XWayland clients be screen shared, and the tracker Jitsi opens for the duration of a
+    // share. Neither is meant to be looked at -- window rules pin both to 1x1 at opacity 0 and deny
+    // them focus -- so listing them offers the user something that cannot be seen, clicked, or
+    // switched to.
+    //
+    // Matched on identity rather than on being small or transparent. A rule can hide any window
+    // that way, and inferring it from geometry would eventually swallow a real window that happened
+    // to be tiny. `title` is optional and only narrows the match: jitsi-meet is an ordinary
+    // application whose other windows do belong in the list.
+    readonly property var helperToplevels: [
+        {
+            class: "xwaylandvideobridge"
+        },
+        {
+            class: "jitsi-meet",
+            title: "Screen Sharing Tracker"
+        }
+    ]
+
+    function isHelperToplevel(toplevel: var): bool {
+        const o = toplevel?.lastIpcObject;
+        if (!o)
+            return false;
+
+        return root.helperToplevels.some(h => h.class === o.class && (!h.title || h.title === o.title));
+    }
+
     readonly property HyprlandToplevel activeToplevel: {
         const t = Hyprland.activeToplevel;
         return t?.workspace?.name.startsWith("special:") || Hyprland.focusedWorkspace?.toplevels.values.length > 0 ? t : null;
