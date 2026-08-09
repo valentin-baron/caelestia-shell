@@ -16,6 +16,52 @@ Singleton {
     readonly property var monitors: Hyprland.monitors
     readonly property bool usingLua: Hyprland.usingLua
 
+    // A single constraint out of a bar.workspaces.hiddenWindows entry, matched against one field of
+    // a window. An exact string, or a { regex, flags } pair -- the same two forms bar.workspaces
+    // .windowIcons accepts, so one convention covers both. An absent constraint constrains nothing
+    // and so matches anything, which is what lets an entry name only the field it cares about.
+    function matchesWindowRule(value: string, rule: var): bool {
+        if (rule === undefined || rule === null)
+            return true;
+
+        if (typeof rule === "string")
+            return value === rule;
+
+        if (rule.regex)
+            return new RegExp(rule.regex, rule.flags ?? "").test(value);
+
+        return false;
+    }
+
+    // Whether a window should be left out of anywhere the shell lists windows. Configured through
+    // bar.workspaces.hiddenWindows, which ships defaults covering the two windows screen sharing
+    // brings along -- see barconfig.hpp for why those in particular.
+    //
+    // Matched on identity rather than on being small or transparent. A window rule can hide any
+    // window that way, and inferring it from geometry would eventually swallow a real window that
+    // happened to be tiny.
+    function isHiddenToplevel(toplevel: var): bool {
+        const o = toplevel?.lastIpcObject;
+        if (!o)
+            return false;
+
+        // `?? []` guards the case this repository exists to prevent: QML running against a plugin
+        // build that predates the key, where reading it gives undefined and calling .some() on that
+        // would throw out of a binding every window list depends on.
+        return (GlobalConfig.bar.workspaces.hiddenWindows ?? []).some(entry => {
+            // `class` is a reserved word, so it is read by subscript rather than by dot.
+            const cls = entry["class"];
+            const title = entry.title;
+
+            // An entry naming no field at all constrains nothing, and would otherwise match -- and
+            // therefore hide -- every window on the system.
+            if (cls === undefined && title === undefined)
+                return false;
+
+            return root.matchesWindowRule(o.class ?? "", cls) && root.matchesWindowRule(o.title ?? "", title);
+        });
+    }
+
     readonly property HyprlandToplevel activeToplevel: {
         const t = Hyprland.activeToplevel;
         return t?.workspace?.name.startsWith("special:") || Hyprland.focusedWorkspace?.toplevels.values.length > 0 ? t : null;
@@ -104,6 +150,9 @@ Singleton {
     function isToplevelIgnored(toplevel: HyprlandToplevel, ignoredTags = []): bool {
         const ipc = toplevel?.lastIpcObject;
         if (!ipc?.class || !ipc.mapped)
+            return true;
+
+        if (isHiddenToplevel(toplevel))
             return true;
 
         return ipc.tags?.some(tag => ignoredTags.includes(tag.replace(/\*$/, ""))) ?? false;

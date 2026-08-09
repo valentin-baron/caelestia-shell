@@ -228,7 +228,7 @@ For example, to automatically hide the bar on the monitor named `DP-1`:
 >
 > - `appearance`: `anim.*`, `transparency.*`
 > - `bar.tray`: `hiddenIcons`, `iconSubs`
-> - `bar.workspaces`: `ignoredTags`, `specialWorkspaceIcons`, `windowIcons`, `workspaceIcons`
+> - `bar.workspaces`: `hiddenWindows`, `ignoredTags`, `specialWorkspaceIcons`, `windowIcons`, `workspaceIcons`
 > - `dashboard`: `mediaUpdateInterval`, `resourceUpdateInterval`
 > - `general`: `apps.*`, `battery.*`, `idle.*`, `logo`
 > - `launcher`: `actionPrefix`, `actions`, `enableDangerousActions`, `favouriteApps`, `hiddenApps`, `specialPrefix`, `useFuzzy.*`, `vimKeybinds`
@@ -467,6 +467,15 @@ For example, to automatically hide the bar on the monitor named `DP-1`:
                 {
                     "regex": "steam(_app_(default|[0-9]+))?",
                     "icon": "sports_esports"
+                }
+            ],
+            "hiddenWindows": [
+                {
+                    "class": "xwaylandvideobridge"
+                },
+                {
+                    "class": "jitsi-meet",
+                    "title": "Screen Sharing Tracker"
                 }
             ]
         },

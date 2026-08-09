@@ -65,6 +65,24 @@ class BarWorkspaces : public settings::ObjectNode {
         DEFAULT_ARG({
             ICON_RULE_REGEX("steam(_app_(default|[0-9]+))?", "", "sports_esports"),
         }))
+    // Windows to leave out of anywhere the shell lists windows. Each entry constrains `class`
+    // and/or `title`; a constraint is either an exact string or a { regex, flags } pair, and every
+    // constraint an entry names must match. See Hypr.isHiddenToplevel.
+    //
+    // The defaults are windows that only exist so screen sharing can work -- the Xwayland video
+    // bridge, and the tracker Jitsi opens for the duration of a share. Both are pinned to 1x1 at
+    // opacity 0 and refuse focus, so listing them offers something that cannot be seen, clicked or
+    // switched to. Setting this key in the config replaces these rather than adding to them.
+    CONFIG_GLOBAL_PROPERTY(QVariantList, hiddenWindows,
+        DEFAULT_ARG({
+            vmap({
+                { u"class"_s, u"xwaylandvideobridge"_s },
+            }),
+            vmap({
+                { u"class"_s, u"jitsi-meet"_s },
+                { u"title"_s, u"Screen Sharing Tracker"_s },
+            }),
+        }))
 };
 
 class BarActiveWindow : public settings::ObjectNode {
