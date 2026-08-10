@@ -82,18 +82,8 @@ PageBase {
         width: root.cappedWidth
         spacing: Tokens.spacing.extraSmall / 2
 
-        StepperRow {
-            first: true
-            label: qsTr("Shown")
-            subtext: qsTr("Max workspaces displayed at once; the row grows and shrinks with however many actually exist, up to this many")
-            value: Config.bar.workspaces.shown
-            from: 1
-            to: 20
-            stepSize: 1
-            onMoved: v => GlobalConfig.bar.workspaces.shown = v
-        }
-
         ToggleRow {
+            first: true
             text: qsTr("Active indicator")
             checked: Config.bar.workspaces.activeIndicator
             onToggled: GlobalConfig.bar.workspaces.activeIndicator = checked

@@ -22,33 +22,39 @@ StyledClippingRect {
     // when per-monitor workspaces are on, everything Hyprland currently knows about otherwise.
     // Sorted so the icons read in workspace order.
     //
-    // A workspace exists here for exactly as long as Hyprland keeps the object alive: the
-    // active one always (a monitor never lets go of the workspace it is showing), plus any
-    // other with a window on it. Nothing stands in for an id that nothing occupies, which is
-    // what lets this row grow and shrink with the real workspace count instead of paging
-    // through a fixed-size window of ids that may or may not exist.
-    readonly property var allWorkspaces: Hypr.workspaces.values
-        .filter(w => !w.name.startsWith("special:") && (!GlobalConfig.bar.workspaces.perMonitorWorkspaces || w.monitor === root.monitor))
-        .sort((a, b) => a.id - b.id)
+    // Built from toplevels rather than from Hypr.workspaces.values directly. Quickshell's own
+    // Hyprland-workspace tracking does not reliably drop an entry when hyprland.lua's
+    // shift-back (events/spill.lua) collapses a workspace away: `hyprctl workspaces` agrees
+    // with reality straight after, but Hypr.workspaces.values kept a phantom entry for the
+    // collapsed id even once nothing referenced it and further Hyprland events had fired.
+    // Window open/close tracking does not share that gap -- every other window-list feature in
+    // this file (the per-workspace window icons below, SpecialWorkspaces') already stakes
+    // itself on Hypr.toplevels.values being accurate -- so a workspace counts as existing here
+    // for exactly the reasons Hyprland itself would keep it alive: it is the one a monitor is
+    // actively showing (which persists at zero windows), or something has a window open on it.
+    readonly property var allWorkspaces: {
+        const perMonitor = GlobalConfig.bar.workspaces.perMonitorWorkspaces;
+        const byId = new Map();
 
-    // `shown` used to be how many ids were always displayed; now that the row is exactly as
-    // long as the real count, it instead caps how long the row is allowed to grow before it
-    // starts dropping the workspaces furthest from the one in view -- centred on activeWsId
-    // rather than on either end, so the one being looked at never falls off.
-    readonly property var shownWorkspaces: {
-        const all = root.allWorkspaces;
-        const max = Config.bar.workspaces.shown;
-        if (all.length <= max)
-            return all;
+        const active = perMonitor ? root.monitor?.activeWorkspace : Hypr.focusedWorkspace;
+        if (active)
+            byId.set(active.id, active);
 
-        const activeIdx = Math.max(0, all.findIndex(w => w.id === root.activeWsId));
-        const start = Math.min(Math.max(activeIdx - Math.floor((max - 1) / 2), 0), all.length - max);
-        return all.slice(start, start + max);
+        for (const t of Hypr.toplevels.values) {
+            const ws = t.workspace;
+            if (!ws || ws.name.startsWith("special:"))
+                continue;
+            if (perMonitor && ws.monitor !== root.monitor)
+                continue;
+            byId.set(ws.id, ws);
+        }
+
+        return Array.from(byId.values()).sort((a, b) => a.id - b.id);
     }
 
     readonly property var occupied: {
         const occ = {};
-        for (const ws of shownWorkspaces)
+        for (const ws of allWorkspaces)
             occ[ws.id] = ws.lastIpcObject.windows > 0;
         return occ;
     }
@@ -126,7 +132,7 @@ StyledClippingRect {
                 id: workspaces
 
                 model: ScriptModel {
-                    values: root.shownWorkspaces
+                    values: root.allWorkspaces
                 }
 
                 Workspace {
