@@ -85,7 +85,7 @@ PageBase {
         StepperRow {
             first: true
             label: qsTr("Shown")
-            subtext: qsTr("Number of workspaces displayed")
+            subtext: qsTr("Max workspaces displayed at once; the row grows and shrinks with however many actually exist, up to this many")
             value: Config.bar.workspaces.shown
             from: 1
             to: 20

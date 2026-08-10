@@ -11,21 +11,31 @@ Item {
 
     required property Repeater workspaces
     required property var occupied
-    required property int groupOffset
 
     property list<var> pills: []
+
+    // The ids currently in the repeater, in display order. Positions used to be derivable from
+    // an id with plain arithmetic (mod `Config.bar.workspaces.shown`), back when the row was a
+    // fixed-size page of consecutive ids; now that it is exactly as long as the real workspace
+    // count, a pill's start/end has to be looked up by id instead.
+    readonly property var shownIds: {
+        const ids = [];
+        for (let i = 0; i < workspaces.count; i++)
+            ids.push((workspaces.itemAt(i) as Workspace)?.ws);
+        return ids;
+    }
 
     onOccupiedChanged: {
         if (!occupied)
             return;
+        const ids = shownIds;
         let count = 0;
-        const start = groupOffset;
-        const end = start + Config.bar.workspaces.shown;
-        for (const [ws, occ] of Object.entries(occupied)) {
-            if (ws > start && ws <= end && occ) {
-                const isFirstInGroup = Number(ws) === start + 1;
-                const isLastInGroup = Number(ws) === end;
-                if (isFirstInGroup || !occupied[ws - 1]) {
+        for (let i = 0; i < ids.length; i++) {
+            const ws = ids[i];
+            if (occupied[ws]) {
+                const isFirstInGroup = i === 0 || !occupied[ids[i - 1]];
+                const isLastInGroup = i === ids.length - 1 || !occupied[ids[i + 1]];
+                if (isFirstInGroup) {
                     if (pills[count])
                         pills[count].start = ws;
                     else
@@ -34,7 +44,7 @@ Item {
                         }));
                     count++;
                 }
-                if ((isLastInGroup || !occupied[ws + 1]) && pills[count - 1])
+                if (isLastInGroup && pills[count - 1])
                     pills[count - 1].end = ws;
             }
         }
@@ -52,15 +62,8 @@ Item {
 
             required property var modelData
 
-            readonly property Workspace start: root.workspaces.count > 0 ? root.workspaces.itemAt(getWsIdx(modelData.start)) ?? null : null // qmllint disable incompatible-type
-            readonly property Workspace end: root.workspaces.count > 0 ? root.workspaces.itemAt(getWsIdx(modelData.end)) ?? null : null // qmllint disable incompatible-type
-
-            function getWsIdx(ws: int): int {
-                let i = ws - 1;
-                while (i < 0)
-                    i += Config.bar.workspaces.shown;
-                return i % Config.bar.workspaces.shown;
-            }
+            readonly property Workspace start: root.workspaces.count > 0 ? root.workspaces.itemAt(root.shownIds.indexOf(modelData.start)) ?? null : null // qmllint disable incompatible-type
+            readonly property Workspace end: root.workspaces.count > 0 ? root.workspaces.itemAt(root.shownIds.indexOf(modelData.end)) ?? null : null // qmllint disable incompatible-type
 
             anchors.horizontalCenter: root.horizontalCenter
 

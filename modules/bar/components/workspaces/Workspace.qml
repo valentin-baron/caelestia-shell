@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Hyprland
 import Caelestia.Config
 import qs.components
 import qs.services
@@ -11,23 +12,50 @@ import qs.utils
 ColumnLayout {
     id: root
 
-    required property int index
+    required property HyprlandWorkspace modelData
     required property int activeWsId
-    required property var occupied
-    required property int groupOffset
 
     readonly property bool isWorkspace: true // Flag for finding workspace children
     // Unanimated prop for others to use as reference
     readonly property int size: implicitHeight + (hasWindows ? Tokens.padding.extraSmall : 0)
 
-    readonly property int ws: groupOffset + index + 1
-    readonly property bool isOccupied: occupied[ws] ?? false
+    // Cached rather than read straight off modelData: the model destroys it partway through the
+    // remove animation that plays when the workspace collapses away (see events/spill.lua on the
+    // Hyprland side), and this is what the row keeps showing while that animation finishes.
+    property int ws
+    property string wsName
+    property bool isOccupied
     readonly property bool hasWindows: isOccupied && Config.bar.workspaces.showWindows
 
-    Layout.alignment: Qt.AlignHCenter
-    Layout.preferredHeight: size
+    anchors.horizontalCenter: parent.horizontalCenter
+    height: size
 
     spacing: 0
+
+    Component.onCompleted: {
+        ws = modelData.id;
+        wsName = modelData.name;
+        isOccupied = modelData.lastIpcObject.windows > 0;
+    }
+
+    Connections {
+        function onIdChanged(): void {
+            if (root.modelData)
+                root.ws = root.modelData.id;
+        }
+
+        function onNameChanged(): void {
+            if (root.modelData)
+                root.wsName = root.modelData.name;
+        }
+
+        function onLastIpcObjectChanged(): void {
+            if (root.modelData)
+                root.isOccupied = root.modelData.lastIpcObject.windows > 0;
+        }
+
+        target: root.modelData
+    }
 
     StyledText {
         id: indicator
@@ -37,8 +65,7 @@ ColumnLayout {
 
         animate: true
         text: {
-            const ws = Hypr.workspaces.values.find(w => w.id === root.ws);
-            const wsName = !ws || ws.name == root.ws ? root.ws : ws.name[0];
+            const wsName = root.wsName === root.ws.toString() ? root.ws : root.wsName[0];
             let displayName = wsName.toString();
             if (Config.bar.workspaces.capitalisation.toLowerCase() === "upper") {
                 displayName = displayName.toUpperCase();
@@ -133,7 +160,7 @@ ColumnLayout {
         }
     }
 
-    Behavior on Layout.preferredHeight {
+    Behavior on height {
         Anim {}
     }
 }

@@ -14,11 +14,16 @@ StyledRect {
     required property Item mask
     required property bool fullscreen
 
+    // Used to be derivable from activeWsId with plain arithmetic (mod `Config.bar.workspaces
+    // .shown`), back when the row was a fixed-size page of consecutive ids at a known offset.
+    // Now that it is exactly as long as the real workspace count, the active one's position has
+    // to be looked up instead -- it is always in there somewhere, since a monitor never lets go
+    // of the workspace it is showing.
     readonly property int currentWsIdx: {
-        let i = activeWsId - 1;
-        while (i < 0)
-            i += Config.bar.workspaces.shown;
-        return i % Config.bar.workspaces.shown;
+        for (let i = 0; i < workspaces.count; i++)
+            if ((workspaces.itemAt(i) as Workspace)?.ws === activeWsId)
+                return i;
+        return 0;
     }
 
     property real leading: workspaces.count > 0 ? workspaces.itemAt(currentWsIdx)?.y ?? 0 : 0
