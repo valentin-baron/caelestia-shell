@@ -17,14 +17,25 @@ StyledRect {
     // Used to be derivable from activeWsId with plain arithmetic (mod `Config.bar.workspaces
     // .shown`), back when the row was a fixed-size page of consecutive ids at a known offset.
     // Now that it is exactly as long as the real workspace count, the active one's position has
-    // to be looked up instead -- it is always in there somewhere, since a monitor never lets go
-    // of the workspace it is showing.
-    readonly property int currentWsIdx: {
+    // to be looked up instead -- it is always in there somewhere at rest, since a monitor never
+    // lets go of the workspace it is showing.
+    //
+    // "At rest" is doing work: a spill or a hyprland.lua shift-back collapse fires several
+    // Hyprland events in a row, and activeWsId can update a tick before (spilling onto a new
+    // workspace) or after (collapsing one away) the row's own icons catch up. Falling back to
+    // index 0 during that window used to snap the indicator to the first workspace and then
+    // visibly drag it back once the real position resolved -- looked like the first workspace
+    // was what got focused. Holding the last resolved index across a miss instead means the
+    // indicator just sits still through the gap and slides directly to wherever activeWsId
+    // ends up, with no detour through index 0.
+    readonly property int foundWsIdx: {
         for (let i = 0; i < workspaces.count; i++)
             if ((workspaces.itemAt(i) as Workspace)?.ws === activeWsId)
                 return i;
-        return 0;
+        return -1;
     }
+
+    property int currentWsIdx: 0
 
     property real leading: workspaces.count > 0 ? workspaces.itemAt(currentWsIdx)?.y ?? 0 : 0
     property real trailing: workspaces.count > 0 ? workspaces.itemAt(currentWsIdx)?.y ?? 0 : 0
@@ -41,6 +52,14 @@ StyledRect {
 
     property int cWs
     property int lastWs
+
+    function syncCurrentWsIdx(): void {
+        if (foundWsIdx >= 0)
+            currentWsIdx = foundWsIdx;
+    }
+
+    Component.onCompleted: syncCurrentWsIdx()
+    onFoundWsIdxChanged: syncCurrentWsIdx()
 
     onCurrentWsIdxChanged: {
         lastWs = cWs;
