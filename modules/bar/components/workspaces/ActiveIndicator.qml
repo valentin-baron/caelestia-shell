@@ -13,6 +13,7 @@ StyledRect {
     required property Repeater workspaces
     required property Item mask
     required property bool fullscreen
+    required property real itemSpacing
 
     // Used to be derivable from activeWsId with plain arithmetic (mod `Config.bar.workspaces
     // .shown`), back when the row was a fixed-size page of consecutive ids at a known offset.
@@ -37,21 +38,37 @@ StyledRect {
 
     property int currentWsIdx: 0
 
-    property real leading: workspaces.count > 0 ? workspaces.itemAt(currentWsIdx)?.y ?? 0 : 0
-    property real trailing: workspaces.count > 0 ? workspaces.itemAt(currentWsIdx)?.y ?? 0 : 0
+    property real leading: workspaces.count > 0 ? yAt(currentWsIdx) : 0
+    property real trailing: workspaces.count > 0 ? yAt(currentWsIdx) : 0
     property real currentSize: workspaces.count > 0 ? (workspaces.itemAt(currentWsIdx) as Workspace)?.size ?? 0 : 0
     property real offset: Math.min(leading, trailing)
     property real size: {
         const s = Math.abs(leading - trailing) + currentSize;
         if (Config.bar.workspaces.activeTrail && lastWs > currentWsIdx) {
             const ws = workspaces.itemAt(lastWs) as Workspace;
-            return ws ? Math.min(ws.y + ws.size - offset, s) : 0;
+            return ws ? Math.min(yAt(lastWs) + ws.size - offset, s) : 0;
         }
         return s;
     }
 
     property int cWs
     property int lastWs
+
+    // Column has not necessarily positioned a just-added item's `y` yet by the time it becomes
+    // the current index -- confirmed live: reading itemAt(idx).y right as currentWsIdx changes
+    // to a brand new item returns 0, the same as index 0, even a tick after deferring with
+    // Qt.callLater. Deriving the position from each item's own `size` instead of its `y` sidesteps
+    // that race entirely: `size` is intrinsic to the item (its content's height, plus padding when
+    // it has windows) and is correct the instant the item exists, regardless of whether Column has
+    // gotten around to positioning it. Reading `.y` here used to make a new workspace's indicator
+    // motion start from wherever index 0 happens to sit -- exactly the "first workspace flashes,
+    // then drags to the new one" this replaces.
+    function yAt(idx: int): real {
+        let y = 0;
+        for (let i = 0; i < idx; i++)
+            y += ((workspaces.itemAt(i) as Workspace)?.size ?? 0) + itemSpacing;
+        return y;
+    }
 
     function syncCurrentWsIdx(): void {
         if (foundWsIdx >= 0)

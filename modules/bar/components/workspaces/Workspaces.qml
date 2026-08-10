@@ -151,6 +151,7 @@ StyledClippingRect {
                 workspaces: workspaces
                 mask: layout
                 fullscreen: root.fullscreen
+                itemSpacing: layout.spacing
             }
         }
 
