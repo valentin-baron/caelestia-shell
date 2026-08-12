@@ -7,11 +7,13 @@ import Quickshell.Services.SystemTray
 import Caelestia.Config
 import qs.components
 import qs.services
+import qs.modules.dashboard.dash as Dash
 
 Item {
     id: root
 
     required property PopoutState popouts
+    required property ScreenState screenState
     readonly property Popout currentPopout: content.children.find(c => c.shouldBeActive) ?? null
     readonly property Item current: currentPopout?.item ?? null
 
@@ -117,6 +119,21 @@ Item {
         Popout {
             name: "lockstatus"
             sourceComponent: LockStatus {}
+        }
+
+        Popout {
+            name: "calendar"
+            sourceComponent: Item {
+                width: 300
+                implicitWidth: width
+                implicitHeight: calendar.implicitHeight
+
+                Dash.Calendar {
+                    id: calendar
+
+                    screenState: root.screenState
+                }
+            }
         }
 
         Repeater {
