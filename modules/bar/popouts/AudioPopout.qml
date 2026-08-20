@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import Quickshell
 import Quickshell.Services.Pipewire
 import Caelestia.Config
 import Caelestia.I18n
@@ -112,6 +113,21 @@ Item {
             icon: "settings"
 
             onClicked: root.popouts.detachRequested("audio")
+        }
+
+        IconTextButton {
+            Layout.fillWidth: true
+            inactiveColour: Colours.palette.m3tertiaryContainer
+            inactiveOnColour: Colours.palette.m3onTertiaryContainer
+            verticalPadding: Tokens.padding.extraSmall
+            text: qsTr("Fix audio")
+            icon: "restart_alt"
+
+            // The PipeWire graph occasionally comes up wedged (every stream
+            // stuck negotiating, sinks suspended); restarting the stack fixes it.
+            // The xdg-desktop-portals hold their PipeWire connection from login and
+            // never reconnect, so they must be restarted too or screenshare dies.
+            onClicked: Quickshell.execDetached(["sh", "-c", "systemctl --user restart pipewire pipewire-pulse wireplumber && systemctl --user restart xdg-desktop-portal-hyprland xdg-desktop-portal && notify-send -a caelestia-shell -u low 'Audio fixed' 'PipeWire stack and portals restarted'"])
         }
     }
 }
