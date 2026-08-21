@@ -121,7 +121,9 @@ Item {
 
             // The PipeWire graph occasionally comes up wedged (every stream
             // stuck negotiating, sinks suspended); restarting the stack fixes it.
-            onClicked: Quickshell.execDetached(["sh", "-c", "systemctl --user restart pipewire pipewire-pulse wireplumber && notify-send -a caelestia-shell -u low 'Audio fixed' 'PipeWire stack restarted'"])
+            // The xdg-desktop-portals hold their PipeWire connection from login and
+            // never reconnect, so they must be restarted too or screenshare dies.
+            onClicked: Quickshell.execDetached(["sh", "-c", "systemctl --user restart pipewire pipewire-pulse wireplumber && systemctl --user restart xdg-desktop-portal-hyprland xdg-desktop-portal && notify-send -a caelestia-shell -u low 'Audio fixed' 'PipeWire stack and portals restarted'"])
         }
     }
 }
