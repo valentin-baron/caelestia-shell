@@ -7,7 +7,7 @@ import qs.components
 
 // Clone of the SDDM greeter (sddm/mirror in the hypr config repo): flat background, one huge
 // centered password pill, plus two extras the greeter lacks -- a palette button under the
-// pill, and live cycling through the greeter's own theme.conf combos (the button, or the
+// pill, and live cycling through the combos Palettes.qml carries (the button, or the
 // lock IPC target's cyclePalette). Unlike the hyprlock version this replaced, a swap is just
 // a property change: everything recolors in place, no process restart.
 WlSessionLockSurface {
@@ -116,7 +116,7 @@ WlSessionLockSurface {
         }
     }
 
-    // Palette button: steps to the next theme.conf combo. Positioned like the hyprlock
+    // Palette button: steps to the next palette combo. Positioned like the hyprlock
     // label it replaces: 100px of pill below center + 80px gap.
     MaterialIcon {
         anchors.horizontalCenter: parent.horizontalCenter
