@@ -9,14 +9,25 @@ import qs.components.misc
 Scope {
     property alias lock: lock
 
+    Palettes {
+        id: palettes
+    }
+
     WlSessionLock {
         id: lock
 
         signal unlock
 
+        // A fresh random palette per lock, like the greeter rolls one per launch.
+        onLockedChanged: {
+            if (locked)
+                palettes.randomise();
+        }
+
         LockSurface {
             lock: lock
             pam: pam
+            palettes: palettes
         }
     }
 
@@ -67,6 +78,10 @@ Scope {
 
         function isLocked(): bool {
             return lock.locked;
+        }
+
+        function cyclePalette(): void {
+            palettes.cycle();
         }
 
         target: "lock"
