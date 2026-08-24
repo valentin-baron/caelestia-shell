@@ -77,6 +77,7 @@ class UtilitiesConfig : public ConfigObject {
             LIST_ENTRY(gameMode, true),
             LIST_ENTRY(dnd, true),
             LIST_ENTRY(reload, true),
+            LIST_ENTRY(update, true),
             LIST_ENTRY(vpn, false),
         })
 

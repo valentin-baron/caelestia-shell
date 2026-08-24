@@ -151,6 +151,17 @@ StyledRect {
                     }
                 }
                 DelegateChoice {
+                    roleValue: "update"
+                    delegate: Toggle {
+                        icon: "upgrade"
+                        inactiveOnColour: Colours.palette.m3onSurfaceVariant
+                        isToggle: false
+                        // Fire-and-forget: the script reports through notifications, and runs
+                        // detached so pressing reload next door cannot take it down mid-install.
+                        onClicked: Quickshell.execDetached([Quickshell.env("HOME") + "/.config/hypr/Scripts/update-shell"])
+                    }
+                }
+                DelegateChoice {
                     roleValue: "vpn"
                     delegate: Toggle {
                         icon: "vpn_key"
