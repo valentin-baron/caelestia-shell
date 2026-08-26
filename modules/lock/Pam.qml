@@ -28,6 +28,24 @@ Scope {
     property int state
     property string buffer
 
+    // What the keypad's navigation syms sit on. Hyprland pushes a fresh keymap to the
+    // focused client after resume without re-sending modifiers, so the lock surface
+    // (which never loses focus) is left believing numlock is off and keypad digits
+    // arrive as these syms with empty text. Key_Delete is KP_Separator: "," on de.
+    readonly property var kpDigits: ({
+        [Qt.Key_Insert]: "0",
+        [Qt.Key_End]: "1",
+        [Qt.Key_Down]: "2",
+        [Qt.Key_PageDown]: "3",
+        [Qt.Key_Left]: "4",
+        [Qt.Key_Clear]: "5",
+        [Qt.Key_Right]: "6",
+        [Qt.Key_Home]: "7",
+        [Qt.Key_Up]: "8",
+        [Qt.Key_PageUp]: "9",
+        [Qt.Key_Delete]: ","
+    })
+
     signal flashMsg
 
     function handleKey(event: KeyEvent): void {
@@ -53,6 +71,8 @@ Scope {
             } else {
                 buffer = buffer.slice(0, -1);
             }
+        } else if (event.modifiers & Qt.KeypadModifier && kpDigits[event.key] !== undefined) {
+            buffer += kpDigits[event.key];
         } else if (/^[^\x00-\x1F\x7F-\x9F]+$/.test(event.text)) {
             // Allow anything except control characters
             buffer += event.text;
