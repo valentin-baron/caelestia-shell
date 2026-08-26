@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Caelestia
 import Caelestia.Config
 import qs.components
 import qs.components.controls
@@ -329,6 +330,118 @@ ColumnLayout {
                     color: ethernetItem.modelData.connected ? Colours.palette.m3onPrimary : Colours.palette.m3onSurface
 
                     opacity: ethernetItem.loading ? 0 : 1
+
+                    Behavior on opacity {
+                        Anim {
+                            type: Anim.DefaultEffects
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // VPN section - NetworkManager VPN profiles (wireguard + plugin VPNs),
+    // shown in both views since a VPN rides on top of either connection.
+    StyledText {
+        visible: Nmcli.vpnConnections.length > 0
+        Layout.preferredHeight: visible ? implicitHeight : 0
+        Layout.topMargin: visible ? Tokens.spacing.small : 0
+        Layout.rightMargin: Tokens.padding.extraSmall
+        text: qsTr("VPN")
+        font: Tokens.font.body.builders.medium.weight(Font.Medium).build()
+    }
+
+    Repeater {
+        model: ScriptModel {
+            values: [...Nmcli.vpnConnections].sort((a, b) => (b.active - a.active) || a.name.localeCompare(b.name)).slice(0, 8)
+        }
+
+        RowLayout {
+            id: vpnItem
+
+            required property Nmcli.VpnConnection modelData
+            readonly property bool loading: Nmcli.connectingVpnUuid === modelData.uuid
+
+            Layout.fillWidth: true
+            Layout.rightMargin: Tokens.padding.extraSmall
+            spacing: Tokens.spacing.small
+
+            opacity: 0
+            scale: 0.7
+
+            Component.onCompleted: {
+                opacity = 1;
+                scale = 1;
+            }
+
+            Behavior on opacity {
+                Anim {
+                    type: Anim.DefaultEffects
+                }
+            }
+
+            Behavior on scale {
+                Anim {}
+            }
+
+            MaterialIcon {
+                text: vpnItem.modelData.active ? "vpn_key" : "vpn_key_off"
+                fill: vpnItem.modelData.active ? 1 : 0
+                color: vpnItem.modelData.active ? Colours.palette.m3primary : Colours.palette.m3onSurfaceVariant
+                animate: true
+            }
+
+            StyledText {
+                Layout.leftMargin: Tokens.spacing.extraSmall
+                Layout.rightMargin: Tokens.spacing.extraSmall
+                Layout.fillWidth: true
+                text: vpnItem.modelData.name
+                elide: Text.ElideRight
+                font: Tokens.font.body.builders.medium.weight(vpnItem.modelData.active ? Font.Medium : Font.Normal).build()
+                color: vpnItem.modelData.active ? Colours.palette.m3primary : Colours.palette.m3onSurface
+            }
+
+            StyledRect {
+                implicitWidth: implicitHeight
+                implicitHeight: vpnConnectIcon.implicitHeight + Tokens.padding.extraSmall
+
+                radius: Tokens.rounding.full
+                color: Qt.alpha(Colours.palette.m3primary, vpnItem.modelData.active ? 1 : 0)
+
+                CircularIndicator {
+                    anchors.fill: parent
+                    running: vpnItem.loading
+                }
+
+                StateLayer {
+                    color: vpnItem.modelData.active ? Colours.palette.m3onPrimary : Colours.palette.m3onSurface
+                    disabled: vpnItem.loading
+
+                    onClicked: {
+                        if (vpnItem.modelData.active) {
+                            Nmcli.deactivateVpn(vpnItem.modelData.uuid, result => {
+                                if (!result.success)
+                                    Toaster.toast(qsTr("VPN disconnection failed"), result.error.trim() || qsTr("Could not deactivate %1").arg(vpnItem.modelData.name), "vpn_key_alert", Toast.Error);
+                            });
+                        } else {
+                            Nmcli.activateVpn(vpnItem.modelData.uuid, result => {
+                                if (!result.success)
+                                    Toaster.toast(qsTr("VPN connection failed"), result.error.trim() || qsTr("Could not activate %1").arg(vpnItem.modelData.name), "vpn_key_alert", Toast.Error);
+                            });
+                        }
+                    }
+                }
+
+                MaterialIcon {
+                    id: vpnConnectIcon
+
+                    anchors.centerIn: parent
+                    animate: true
+                    text: vpnItem.modelData.active ? "link_off" : "link"
+                    color: vpnItem.modelData.active ? Colours.palette.m3onPrimary : Colours.palette.m3onSurface
+
+                    opacity: vpnItem.loading ? 0 : 1
 
                     Behavior on opacity {
                         Anim {
