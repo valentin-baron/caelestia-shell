@@ -38,6 +38,12 @@ Singleton {
     // nmcli reports "unavailable" for ethernet NICs with no link, so we treat
     // anything other than that as a usable connection.
     readonly property bool hasAvailableEthernet: ethernetDevices.some(d => d.state !== "unavailable")
+    // NetworkManager VPN profiles (wireguard + plugin VPNs like OpenVPN),
+    // listed like networks/ethernetDevices so UIs can offer click-to-connect.
+    readonly property list<VpnConnection> vpnConnections: []
+    readonly property VpnConnection activeVpn: vpnConnections.find(c => c.active) ?? null
+    // UUID of the VPN profile currently being activated, "" when idle.
+    property string connectingVpnUuid: ""
     property list<var> activeProcesses: []
 
     readonly property alias connectionCheckTimer: connectionCheckTimer
@@ -53,6 +59,7 @@ Singleton {
     readonly property string nmcliCommandRadio: "radio"
     readonly property string deviceStatusFields: "DEVICE,TYPE,STATE,CONNECTION"
     readonly property string connectionListFields: "NAME,TYPE"
+    readonly property string vpnConnectionListFields: "NAME,UUID,TYPE,ACTIVE,DEVICE"
     readonly property string wirelessSsidField: "802-11-wireless.ssid"
     readonly property string networkListFields: "SSID,SIGNAL,SECURITY"
     readonly property string networkDetailFields: "ACTIVE,SIGNAL,FREQ,SSID,BSSID,SECURITY"
@@ -334,6 +341,112 @@ Singleton {
                     getEthernetInterfaces(() => {});
                 }, 500);
             }
+            if (callback)
+                callback(result);
+        });
+    }
+
+    function parseVpnConnectionOutput(output: string): list<var> {
+        if (!output || output.length === 0) {
+            return [];
+        }
+
+        const PLACEHOLDER = "STRINGWHICHHOPEFULLYWONTBEUSED";
+        const rep = new RegExp("\\\\:", "g");
+        const rep2 = new RegExp(PLACEHOLDER, "g");
+
+        return output.trim().split("\n").filter(line => line && line.length > 0).map(line => {
+            const parts = line.replace(rep, PLACEHOLDER).split(":");
+            return {
+                name: (parts[0]?.replace(rep2, ":") ?? "").trim(),
+                uuid: (parts[1] ?? "").trim(),
+                type: (parts[2] ?? "").trim(),
+                active: (parts[3] ?? "").trim() === "yes",
+                device: (parts[4]?.replace(rep2, ":") ?? "").trim()
+            };
+        }).filter(c => c.uuid.length > 0 && (c.type === "vpn" || c.type === "wireguard"));
+    }
+
+    function getVpnConnections(callback: var): void {
+        executeCommand(["-t", "-f", root.vpnConnectionListFields, root.nmcliCommandConnection, "show"], result => {
+            if (!result.success) {
+                if (callback)
+                    callback([]);
+                return;
+            }
+
+            syncVpnConnections(parseVpnConnectionOutput(result.output));
+            if (callback)
+                callback(root.vpnConnections);
+        });
+    }
+
+    // Sync parsed VPN profiles into the object list, keyed by UUID. Same
+    // create/update/destroy diff as syncEthernetDevices / getNetworks.
+    function syncVpnConnections(conns: list<var>): void {
+        const rConns = root.vpnConnections;
+
+        const newMap = new Map();
+        for (const c of conns)
+            newMap.set(c.uuid, c);
+
+        for (let i = rConns.length - 1; i >= 0; i--) {
+            if (!newMap.has(rConns[i].uuid)) {
+                const removed = rConns.splice(i, 1)[0];
+                removed.destroy();
+            }
+        }
+
+        const existingMap = new Map();
+        for (const rc of rConns)
+            existingMap.set(rc.uuid, rc);
+
+        for (const [uuid, data] of newMap) {
+            const match = existingMap.get(uuid);
+            if (match)
+                match.lastIpcObject = data;
+            else
+                rConns.push(vpnComp.createObject(root, {
+                    lastIpcObject: data
+                }));
+        }
+    }
+
+    function activateVpn(uuid: string, callback: var): void {
+        if (!uuid || uuid.length === 0) {
+            if (callback)
+                callback({
+                    success: false,
+                    output: "",
+                    error: "No VPN connection specified",
+                    exitCode: -1
+                });
+            return;
+        }
+
+        root.connectingVpnUuid = uuid;
+        executeCommand([root.nmcliCommandConnection, "up", "uuid", uuid], result => {
+            root.connectingVpnUuid = "";
+            getVpnConnections(() => {});
+            if (callback)
+                callback(result);
+        });
+    }
+
+    function deactivateVpn(uuid: string, callback: var): void {
+        if (!uuid || uuid.length === 0) {
+            if (callback)
+                callback({
+                    success: false,
+                    output: "",
+                    error: "No VPN connection specified",
+                    exitCode: -1
+                });
+            return;
+        }
+
+        executeCommand([root.nmcliCommandConnection, "down", "uuid", uuid], result => {
+            getVpnConnections(() => {});
             if (callback)
                 callback(result);
         });
@@ -1407,6 +1520,7 @@ Singleton {
                     }, 500);
                 }
             });
+            getVpnConnections(() => {});
         });
     }
 
@@ -1415,6 +1529,7 @@ Singleton {
         getNetworks(() => {});
         loadSavedConnections(() => {});
         getEthernetInterfaces(() => {});
+        getVpnConnections(() => {});
 
         Qt.callLater(() => {
             if (root.wirelessInterfaces.length > 0) {
@@ -1453,6 +1568,12 @@ Singleton {
         id: ethComp
 
         EthernetDevice {}
+    }
+
+    Component {
+        id: vpnComp
+
+        VpnConnection {}
     }
 
     Timer {
@@ -1761,6 +1882,17 @@ Singleton {
         readonly property bool active: lastIpcObject.active
         readonly property string security: lastIpcObject.security
         readonly property bool isSecure: security.length > 0
+    }
+
+    component VpnConnection: QtObject {
+        required property var lastIpcObject
+        readonly property string name: lastIpcObject.name
+        readonly property string uuid: lastIpcObject.uuid
+        // Connection type as nmcli reports it: "wireguard" or "vpn" (plugin
+        // VPNs such as OpenVPN/OpenConnect).
+        readonly property string type: lastIpcObject.type
+        readonly property bool active: lastIpcObject.active
+        readonly property string device: lastIpcObject.device
     }
 
     component EthernetDevice: QtObject {

@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Caelestia
 import Caelestia.Config
 import qs.components
 import qs.components.controls
@@ -111,12 +112,170 @@ PageBase {
             onClicked: root.nState.openSubPage(2) // Add network sub-page
         }
 
-        // ---- VPN -------------------------------------------------------------
+        // ---- VPN connections (NetworkManager profiles) -------------------------
+        // Imported VPN configs (wg-quick/OpenVPN profiles known to nmcli), listed
+        // like the Wi-Fi networks above with tap-to-connect. Distinct from the
+        // provider section below, which drives external daemons (Tailscale etc.).
+        ConnectedRect {
+            Layout.topMargin: Tokens.spacing.large
+            Layout.fillWidth: true
+            first: true
+            implicitHeight: vpnConnHeader.implicitHeight + Tokens.padding.medium * 2
+
+            RowLayout {
+                id: vpnConnHeader
+
+                anchors.fill: parent
+                anchors.margins: Tokens.padding.medium
+                anchors.leftMargin: Tokens.padding.largeIncreased
+                anchors.rightMargin: Tokens.padding.largeIncreased
+                spacing: Tokens.spacing.medium
+
+                StyledText {
+                    Layout.fillWidth: true
+                    text: qsTr("VPN connections")
+                    font: Tokens.font.body.medium
+                }
+
+                StyledText {
+                    text: Nmcli.activeVpn ? qsTr("Connected to %1").arg(Nmcli.activeVpn.name) : qsTr("Not connected")
+                    color: Nmcli.activeVpn ? Colours.palette.m3primary : Colours.palette.m3outline
+                    font: Tokens.font.label.small
+                    elide: Text.ElideRight
+                    animate: true
+                }
+            }
+        }
+
+        ItemList {
+            id: vpnConnList
+
+            last: true
+            showList: true
+            placeholderIcon: "vpn_key_off"
+            placeholderText: qsTr("No VPN connections configured")
+
+            model: ScriptModel {
+                values: [...Nmcli.vpnConnections].sort((a, b) => (b.active - a.active) || a.name.localeCompare(b.name))
+            }
+
+            delegate: StateLayer {
+                id: vpnConn
+
+                required property int index
+                required property var modelData
+                readonly property bool isConnecting: Nmcli.connectingVpnUuid === modelData.uuid
+                readonly property string typeLabel: modelData.type === "wireguard" ? "WireGuard" : qsTr("VPN")
+                property real textOpacity: disabled ? 0.5 : 1
+
+                disabled: isConnecting
+
+                anchors.left: vpnConnList.list.contentItem.left
+                anchors.right: vpnConnList.list.contentItem.right
+                anchors.fill: undefined
+                implicitHeight: vpnConnLayout.implicitHeight + vpnConnLayout.anchors.margins * 2
+                radius: Tokens.rounding.extraSmall
+                bottomLeftRadius: index === vpnConnList.list.count - 1 ? Tokens.rounding.extraLarge : radius
+                bottomRightRadius: index === vpnConnList.list.count - 1 ? Tokens.rounding.extraLarge : radius
+
+                onClicked: {
+                    if (modelData.active) {
+                        Nmcli.deactivateVpn(modelData.uuid, result => {
+                            if (!result.success)
+                                Toaster.toast(qsTr("VPN disconnection failed"), result.error.trim() || qsTr("Could not deactivate %1").arg(vpnConn.modelData.name), "vpn_key_alert", Toast.Error);
+                        });
+                    } else {
+                        Nmcli.activateVpn(modelData.uuid, result => {
+                            if (!result.success)
+                                Toaster.toast(qsTr("VPN connection failed"), result.error.trim() || qsTr("Could not activate %1").arg(vpnConn.modelData.name), "vpn_key_alert", Toast.Error);
+                        });
+                    }
+                }
+
+                Behavior on textOpacity {
+                    Anim {
+                        type: Anim.DefaultEffects
+                    }
+                }
+
+                RowLayout {
+                    id: vpnConnLayout
+
+                    anchors.fill: parent
+                    anchors.margins: Tokens.padding.large
+                    anchors.leftMargin: Tokens.padding.extraLarge
+                    anchors.rightMargin: Tokens.padding.extraLarge
+                    spacing: Tokens.spacing.medium
+
+                    MaterialIcon {
+                        text: vpnConn.modelData.active ? "vpn_key" : "vpn_key_off"
+                        fill: vpnConn.modelData.active ? 1 : 0
+                        color: vpnConn.modelData.active ? Colours.palette.m3primary : Colours.palette.m3onSurfaceVariant
+                        fontStyle: Tokens.font.icon.medium
+                        opacity: vpnConn.textOpacity
+                        animate: true
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 0
+                        opacity: vpnConn.textOpacity
+
+                        StyledText {
+                            Layout.fillWidth: true
+                            text: vpnConn.modelData.name
+                            font: Tokens.font.body.small
+                            elide: Text.ElideRight
+                        }
+
+                        StyledText {
+                            Layout.fillWidth: true
+                            text: {
+                                if (vpnConn.isConnecting)
+                                    return qsTr("%1 • Connecting...").arg(vpnConn.typeLabel);
+                                if (vpnConn.modelData.active)
+                                    return vpnConn.modelData.device.length > 0 ? qsTr("%1 • Connected (%2)").arg(vpnConn.typeLabel).arg(vpnConn.modelData.device) : qsTr("%1 • Connected").arg(vpnConn.typeLabel);
+                                return qsTr("%1 • Tap to connect").arg(vpnConn.typeLabel);
+                            }
+                            color: vpnConn.modelData.active ? Colours.palette.m3primary : Colours.palette.m3outline
+                            font: Tokens.font.label.small
+                            elide: Text.ElideRight
+                            animate: true
+                        }
+                    }
+
+                    AnimLoader {
+                        sourceComp: vpnConn.isConnecting ? vpnLoadingComp : vpnIconComp
+
+                        Component {
+                            id: vpnIconComp
+
+                            MaterialIcon {
+                                text: vpnConn.modelData.active ? "link_off" : "link"
+                                color: vpnConn.modelData.active ? Colours.palette.m3primary : Colours.palette.m3onSurfaceVariant
+                                fontStyle: Tokens.font.icon.medium
+                                opacity: vpnConn.textOpacity
+                            }
+                        }
+
+                        Component {
+                            id: vpnLoadingComp
+
+                            LoadingIndicator {
+                                implicitSize: Math.round(Tokens.font.icon.medium.pointSize * 1.3)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ---- VPN providers -----------------------------------------------------
         ToggleRow {
             Layout.topMargin: Tokens.spacing.large
             Layout.fillWidth: true
             first: true
-            text: qsTr("VPN")
+            text: qsTr("VPN providers")
             font: Tokens.font.body.medium
             horizontalPadding: Tokens.padding.largeIncreased
             checked: VPN.connected
