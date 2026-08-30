@@ -47,17 +47,37 @@ Scope {
         };
     })
 
-    // Which connector draws the password pill, by preference -- Wayland has no primary-screen
-    // concept, so without this "primary" is whatever output happens to be announced first.
-    readonly property list<string> preferredScreens: ["HDMI-A-1", "eDP-1"]
+    // Which screen draws the pill, by preference -- Wayland has no primary-screen concept, so
+    // without this "primary" is whatever output happens to be announced first. Plain entries
+    // match a connector name (stable for the laptop's own panels, which don't move ports); a
+    // "model:" entry matches ShellScreen.model instead, for machines where the wanted monitor
+    // can end up on a different connector -- serialNumber would be the more precise match (see
+    // configuration/monitor_selectors.lua's desc: selectors in the hypr config repo) but Qt's
+    // Wayland backend reports it empty here (core wl_output carries no EDID serial), so model
+    // is what's actually available; unique enough among these screens.
+    readonly property list<string> preferredScreens: ["HDMI-A-1", "eDP-1", "model:Odyssey G93SC"]
+
+    function matchesScreen(screen, selector) {
+        const model = selector.match(/^model:(.+)$/);
+        return model ? screen.model === model[1] : screen.name === selector;
+    }
 
     property int index: 0
 
     readonly property var current: combos[Math.min(index, combos.length - 1)]
 
-    // The screen that draws the pill: the first preferred connector that is actually
-    // connected, or empty for "all of them" -- the same fallback the greeter uses.
-    readonly property string pillScreen: preferredScreens.find(s => Quickshell.screens.some(q => q.name === s)) ?? ""
+    // The screen that draws the pill: the connector name of the first preferred selector that
+    // actually matches a connected screen, or empty for "all of them" -- the same fallback the
+    // greeter uses. Resolved to a connector name (not left as the selector) so LockSurface's
+    // plain `pillScreen === screen.name` comparison keeps working either way.
+    readonly property string pillScreen: {
+        for (const selector of preferredScreens) {
+            const match = Quickshell.screens.find(q => matchesScreen(q, selector));
+            if (match)
+                return match.name;
+        }
+        return "";
+    }
 
     function cycle(): void {
         index = (index + 1) % combos.length;
