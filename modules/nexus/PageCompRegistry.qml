@@ -91,6 +91,14 @@ QtObject {
                 }
             }
         },
+        Component {
+            // Video
+            StackPage {
+                Component {
+                    VideoPage {}
+                }
+            }
+        },
 
         // System
         Component {

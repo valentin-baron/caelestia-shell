@@ -41,6 +41,12 @@ QtObject {
             description: qsTr("App volumes, sound devices"),
             category: "connectivity"
         },
+        {
+            label: qsTr("Video"),
+            icon: "videocam",
+            description: qsTr("Camera settings"),
+            category: "connectivity"
+        },
 
         // System
         {
