@@ -27,10 +27,27 @@ PageBase {
     property var formatByLabel: ({})
     property var activeFrameRateItem: null
 
-    function makeItem(text) {
+    function makeItem(text, trailingIcon) {
         return menuItemComp.createObject(root, {
-            text: text
+            text: text,
+            trailingIcon: trailingIcon ?? ""
         });
+    }
+
+    // Distinct rounded max frame rates available for a given resolution, across all pixel formats.
+    function fpsCountForResolution(formats, width, height) {
+        const seen = {};
+        let count = 0;
+        for (const f of formats) {
+            if (f.resolution.width !== width || f.resolution.height !== height)
+                continue;
+            const fps = Math.round(f.maxFrameRate);
+            if (seen[fps])
+                continue;
+            seen[fps] = true;
+            count++;
+        }
+        return count;
     }
 
     function destroyItems(items) {
@@ -84,7 +101,8 @@ PageBase {
                 width: f.resolution.width,
                 height: f.resolution.height
             };
-            items.push(root.makeItem(label));
+            const hasMultipleFrameRates = root.fpsCountForResolution(sorted, f.resolution.width, f.resolution.height) > 1;
+            items.push(root.makeItem(label, hasMultipleFrameRates ? "speed" : ""));
         }
         root.resByLabel = byLabel;
         root.resolutionItems = items;
@@ -263,7 +281,7 @@ PageBase {
         SelectRow {
             visible: root.resolutionItems.length > 0
             first: root.deviceItems.length <= 1
-            last: root.frameRateItems.length <= 1
+            last: root.frameRateItems.length === 0
             label: qsTr("Resolution")
             menuItems: root.resolutionItems
             active: root.activeResolutionItem
@@ -273,6 +291,37 @@ PageBase {
             }
         }
 
+        // Only one frame rate available at this resolution: nothing to pick, just show it.
+        ConnectedRect {
+            visible: root.frameRateItems.length === 1
+            Layout.fillWidth: true
+            last: true
+            implicitHeight: fpsLayout.implicitHeight + fpsLayout.anchors.margins * 2
+
+            RowLayout {
+                id: fpsLayout
+
+                anchors.fill: parent
+                anchors.margins: Tokens.padding.medium
+                anchors.leftMargin: Tokens.padding.largeIncreased
+                anchors.rightMargin: Tokens.padding.largeIncreased
+                spacing: Tokens.spacing.medium
+
+                StyledText {
+                    Layout.fillWidth: true
+                    text: qsTr("Frame rate")
+                    font: Tokens.font.body.small
+                }
+
+                StyledText {
+                    text: root.frameRateItems.length > 0 ? root.frameRateItems[0].text : ""
+                    color: Colours.palette.m3onSurfaceVariant
+                    font: Tokens.font.body.small
+                }
+            }
+        }
+
+        // Multiple frame rates available at this resolution: let it be picked.
         SelectRow {
             visible: root.frameRateItems.length > 1
             last: true
