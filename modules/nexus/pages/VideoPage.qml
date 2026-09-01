@@ -144,35 +144,35 @@ PageBase {
 
     Component.onCompleted: root.rebuildDeviceItems()
 
-    Component {
-        id: menuItemComp
-
-        MenuItem {}
-    }
-
-    MediaDevices {
-        id: mediaDevices
-
-        onVideoInputsChanged: root.rebuildDeviceItems()
-    }
-
-    CaptureSession {
-        id: captureSession
-
-        camera: Camera {
-            id: camera
-
-            active: root.previewOn
-            cameraDevice: root.currentDevice() ?? mediaDevices.defaultVideoInput
-        }
-        videoOutput: videoOutput
-    }
-
     ColumnLayout {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
         width: root.cappedWidth
         spacing: Tokens.spacing.extraSmall / 2
+
+        Component {
+            id: menuItemComp
+
+            MenuItem {}
+        }
+
+        MediaDevices {
+            id: mediaDevices
+
+            onVideoInputsChanged: root.rebuildDeviceItems()
+        }
+
+        CaptureSession {
+            id: captureSession
+
+            camera: Camera {
+                id: camera
+
+                active: root.previewOn
+                cameraDevice: root.currentDevice() ?? mediaDevices.defaultVideoInput
+            }
+            videoOutput: videoOutput
+        }
 
         ConnectedRect {
             id: previewBox
