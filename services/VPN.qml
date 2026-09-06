@@ -83,7 +83,7 @@ Singleton {
     readonly property string interfaceName: active.interface
     readonly property var currentConfig: active
 
-    readonly property var adapters: [wireguardAdapter, warpAdapter, netbirdAdapter, tailscaleAdapter]
+    readonly property var adapters: [wireguardAdapter, warpAdapter, netbirdAdapter, tailscaleAdapter, protonvpnAdapter]
 
     // Live list of configured providers, straight from the typed config list.
     // Each entry is a config node with id/name/displayName/interface and the
@@ -386,6 +386,37 @@ Singleton {
         return status;
     }
 
+    // `protonvpn status` (proton-vpn-cli's own text, verified against its source --
+    // proton/vpn/cli/commands/server.py -- since there is no --json output):
+    //   "Status: Connected\nServer: <name> in <location>\nLoad: <n>%\nProtocol: <proto>"
+    // or just "Status: Disconnected".
+    function parseProtonVpnStatus(output: string): var {
+        const status = {
+            connected: false,
+            state: "disconnected",
+            reason: "",
+            authUrl: "",
+            server: ""
+        };
+
+        if (!output || output.trim().length === 0)
+            return status;
+
+        if (output.includes("Status: Connected")) {
+            status.connected = true;
+            status.state = "connected";
+            const m = output.match(/^Server:\s*(.+)$/m);
+            if (m)
+                status.server = m[1].trim();
+        } else if (output.includes("Status: Disconnected")) {
+            status.state = "disconnected";
+        } else {
+            status.state = "error";
+            status.reason = "Unknown ProtonVPN status";
+        }
+        return status;
+    }
+
     function parseWarpServer(output: string): string {
         // Look for an endpoint hint in the tunnel stats output. WARP shows an
         // "Endpoint" line with the server IP.
@@ -599,6 +630,27 @@ Singleton {
         parse: out => root.parseTailscaleStatus(out)
         // TRANSLATORS: %1 = a shell command, leave it untranslated
         connectHint: error => error.includes("Access denied") || error.includes("checkprefs access denied") ? Tr.mark("Permission denied. Run in terminal: %1", ["sudo tailscale set --operator=$USER"]) : ""
+    }
+
+    Adapter {
+        id: protonvpnAdapter
+
+        // proton-vpn-cli's own binary is named `protonvpn` (setup.py's console_scripts
+        // entry point), not `proton-vpn-cli` -- that's just the pacman package name.
+        // Backed by proton-vpn-daemon.service (system-level, WantedBy=multi-user.target),
+        // hence the sudo in the generic "service not running" hint below.
+        name: "protonvpn"
+        display: "ProtonVPN"
+        service: "proton-vpn-daemon"
+        connectCmd: ["protonvpn", "connect"]
+        disconnectCmd: ["protonvpn", "disconnect"]
+        statusCmd: ["protonvpn", "status"]
+        parse: out => root.parseProtonVpnStatus(out)
+        // "Authentication required..." is `connect`'s exact click.UsageError message when
+        // not signed in (verified against commands/server.py) -- there is no browser-auth
+        // flow like Tailscale/WARP here, `signin` needs an interactive password (and
+        // possibly a 2FA prompt) in a real terminal, so the best this can do is point at it.
+        connectHint: error => error.includes("Authentication required") ? "Not signed in. Run in a terminal: protonvpn signin <your-email>" : error.includes("cannot run simultaneously") || error.includes("desktop app is currently running") ? "Close the ProtonVPN GUI app first -- the CLI can't run alongside it." : ""
     }
 
     // ── Generic engine ──────────────────────────────────────────────────────
