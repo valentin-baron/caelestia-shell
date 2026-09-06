@@ -11,10 +11,10 @@ GridView {
 
     required property ScreenState screenState
 
-    readonly property int tileSize: 110
+    readonly property int tileSize: 150
 
     cellWidth: tileSize
-    cellHeight: tileSize + 30
+    cellHeight: tileSize + 35
 
     clip: true
 

@@ -41,6 +41,8 @@ Item {
         StyledText {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.WordWrap
+            maximumLineCount: 2
             elide: Text.ElideRight
             text: root.modelData?.name ?? ""
             font: Tokens.font.body.medium
