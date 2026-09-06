@@ -348,7 +348,7 @@ ColumnLayout {
         Layout.preferredHeight: visible ? implicitHeight : 0
         Layout.topMargin: visible ? Tokens.spacing.small : 0
         Layout.rightMargin: Tokens.padding.extraSmall
-        text: qsTr("VPN")
+        text: qsTr("VPN connections")
         font: Tokens.font.body.builders.medium.weight(Font.Medium).build()
     }
 
@@ -448,6 +448,99 @@ ColumnLayout {
                             type: Anim.DefaultEffects
                         }
                     }
+                }
+            }
+        }
+    }
+
+    // VPN providers section - the adapter-driven system (services/VPN.qml: wireguard,
+    // warp, netbird, tailscale, protonvpn, or a fully custom entry), separate from the
+    // NetworkManager profiles above. Shown in both views for the same reason. The header
+    // Toggle connects/disconnects whichever provider is selected; tapping a row in the
+    // list below switches which one that is (same split as the Nexus VPN providers page).
+    StyledText {
+        visible: VPN.providers.length > 0
+        Layout.preferredHeight: visible ? implicitHeight : 0
+        Layout.topMargin: visible ? Tokens.spacing.small : 0
+        Layout.rightMargin: Tokens.padding.extraSmall
+        text: qsTr("VPN providers")
+        font: Tokens.font.body.builders.medium.weight(Font.Medium).build()
+    }
+
+    Toggle {
+        visible: VPN.providers.length > 0
+        Layout.preferredHeight: visible ? implicitHeight : 0
+        label: {
+            const p = VPN.providers.find(p => p.providerId === VPN.selectedProvider);
+            return p ? p.displayName : qsTr("VPN");
+        }
+        checked: VPN.connected
+        toggle.enabled: !VPN.connecting && !VPN.disconnecting && VPN.providers.length > 0
+        toggle.onToggled: VPN.toggle()
+    }
+
+    Repeater {
+        model: ScriptModel {
+            // Only worth listing individually when there's more than one to pick between;
+            // with a single provider the header Toggle above is the whole UI for it.
+            values: VPN.providers.length > 1 ? [...VPN.providers] : []
+        }
+
+        Item {
+            id: providerItem
+
+            required property var modelData // QML types are annoying (causes null errors on destruction if typed correctly)
+            readonly property bool isSelected: modelData.providerId === VPN.selectedProvider
+
+            Layout.fillWidth: true
+            Layout.rightMargin: Tokens.padding.extraSmall
+            implicitHeight: providerLayout.implicitHeight
+
+            opacity: 0
+            scale: 0.7
+
+            Component.onCompleted: {
+                opacity = 1;
+                scale = 1;
+            }
+
+            Behavior on opacity {
+                Anim {
+                    type: Anim.DefaultEffects
+                }
+            }
+
+            Behavior on scale {
+                Anim {}
+            }
+
+            StateLayer {
+                disabled: providerItem.isSelected
+                radius: Tokens.rounding.extraSmall
+                onClicked: VPN.setActiveProvider(providerItem.modelData.index)
+            }
+
+            RowLayout {
+                id: providerLayout
+
+                anchors.fill: parent
+                spacing: Tokens.spacing.small
+
+                MaterialIcon {
+                    text: providerItem.isSelected ? "vpn_key" : "vpn_key_off"
+                    fill: providerItem.isSelected ? 1 : 0
+                    color: providerItem.isSelected ? Colours.palette.m3primary : Colours.palette.m3onSurfaceVariant
+                    animate: true
+                }
+
+                StyledText {
+                    Layout.leftMargin: Tokens.spacing.extraSmall
+                    Layout.rightMargin: Tokens.spacing.extraSmall
+                    Layout.fillWidth: true
+                    text: providerItem.modelData.displayName
+                    elide: Text.ElideRight
+                    font: Tokens.font.body.builders.medium.weight(providerItem.isSelected ? Font.Medium : Font.Normal).build()
+                    color: providerItem.isSelected ? Colours.palette.m3primary : Colours.palette.m3onSurface
                 }
             }
         }
