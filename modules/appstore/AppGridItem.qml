@@ -16,8 +16,6 @@ Item {
     implicitWidth: GridView.view.cellWidth
     implicitHeight: GridView.view.cellHeight
 
-    Component.onCompleted: console.log("APPSTORE DEBUG", "typeof=", typeof root.modelData, "modelData=", root.modelData, "name=", root.modelData ? root.modelData.name : "<no modelData>", "icon=", root.modelData ? root.modelData.icon : "<no modelData>")
-
     StateLayer {
         radius: Tokens.rounding.large
         onClicked: {
