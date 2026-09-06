@@ -34,6 +34,12 @@ Region {
     }
 
     R {
+        panel: root.panels.appstore
+        y: root.win.height - height
+        height: panel.height * (1 - root.panels.appstore.offsetScale) + root.borderThickness
+    }
+
+    R {
         id: sessionRegion
 
         panel: root.panels.sessionWrapper
