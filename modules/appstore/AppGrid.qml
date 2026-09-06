@@ -22,9 +22,10 @@ GridView {
 
     // Apps.list (appDb.apps) holds AppDb's wrapper objects, not DesktopEntry -- Apps.search()
     // unwraps them (.map(e => e.entry)), same call the launcher itself makes for its unfiltered
-    // "apps" results.
+    // "apps" results. That order is frequency/favourite-driven (AppDb), so sort alphabetically
+    // for the grid instead.
     model: ScriptModel {
-        values: Apps.search("")
+        values: Apps.search("").sort((a, b) => a.name.localeCompare(b.name))
     }
 
     delegate: AppGridItem {
