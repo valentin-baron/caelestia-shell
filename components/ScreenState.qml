@@ -11,6 +11,11 @@ PersistentProperties {
     property bool dashboard
     property bool utilities
     property bool sidebar
+    property bool appstore
+
+    // launcher and appstore share the same bottom-center region, so opening one closes the other
+    onLauncherChanged: if (launcher) appstore = false
+    onAppstoreChanged: if (appstore) launcher = false
 
     // Dashboard state
     property int dashboardTab
