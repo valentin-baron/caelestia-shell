@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import Quickshell
 import qs.components
 import qs.components.controls
 import qs.modules.launcher.services
@@ -19,7 +20,9 @@ GridView {
 
     Component.onCompleted: Qt.callLater(() => Apps) // Load apps on init
 
-    model: Apps.list
+    model: ScriptModel {
+        values: [...Apps.list]
+    }
 
     delegate: AppGridItem {
         screenState: root.screenState
