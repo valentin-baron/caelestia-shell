@@ -18,7 +18,9 @@ Item {
     readonly property int activeSpecialId: monitor?.lastIpcObject.specialWorkspace?.id ?? 0
     readonly property var wsIds: {
         const allMonitors = !Config.bar.workspaces.perMonitor;
-        return Hypr.workspaces.values.filter(w => w.name.startsWith("special:") && (allMonitors || w.monitor === root.monitor)).map(w => w.id);
+        // The minimize parking workspace is deliberately not a workspace you visit, so it is not one
+        // of the indicators either -- it has its own half of the window strip.
+        return Hypr.workspaces.values.filter(w => w.name.startsWith("special:") && w.name !== Hypr.minimizeWorkspace && (allMonitors || w.monitor === root.monitor)).map(w => w.id);
     }
     readonly property int activeIdx: wsIds.indexOf(activeSpecialId)
     readonly property real maxViewY: Math.max(0, view.contentHeight - height)

@@ -39,6 +39,13 @@ Item {
         }
 
         Popout {
+            name: "windows"
+            sourceComponent: Windows {
+                popouts: root.popouts
+            }
+        }
+
+        Popout {
             id: networkPopout
 
             name: "network"

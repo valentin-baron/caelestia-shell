@@ -147,6 +147,66 @@ Singleton {
         return Quickshell.iconPath(icon);
     }
 
+    // A window's `class` is not a desktop entry ID and is often nowhere near one: Electron and
+    // Xwayland apps report reverse-DNS (org.jitsi.jitsi-meet, entry jitsi-meet-desktop) or their
+    // own hyphenation (rocket-chat, entry rocketchat-desktop), and a Steam game reports
+    // steam_app_<id> with no entry anywhere. Trying the trailing dotted segment as well catches
+    // the first family; the rest resolve to nothing on purpose, so the caller can fall back to
+    // getAppCategoryIcon -- a glyph from the bundled symbol font always renders, where a themed
+    // icon name that is not in the current theme silently draws nothing at all.
+    function getWindowIcon(windowClass: string): string {
+        // Its own matcher rather than matchIconConfig: that one opens with `if (!iconConfig.icon)
+        // return false`, because it serves bar.workspaces.windowIcons where every entry names a
+        // glyph. An iconSubs entry may instead name an `image`, and reusing the shared matcher
+        // silently dropped every one of those on the floor.
+        for (const sub of GlobalConfig.bar.windows?.iconSubs ?? []) {
+            const matches = sub.regex ? new RegExp(sub.regex, sub.flags ?? "").test(windowClass) : sub.name === windowClass;
+            if (!matches)
+                continue;
+
+            if (sub.image)
+                return Qt.resolvedUrl(sub.image);
+            if (sub.icon)
+                return Quickshell.iconPath(sub.icon, "");
+        }
+
+        // A window's class is not a desktop entry ID and is often nowhere near one: Electron and
+        // Xwayland apps report reverse-DNS (org.jitsi.jitsi-meet, entry jitsi-meet-desktop) or
+        // their own hyphenation (rocket-chat, entry rocketchat-desktop). The trailing dotted
+        // segment catches the first family.
+        const names = [windowClass, windowClass.split(".").pop()];
+
+        for (const name of names) {
+            if (!name)
+                continue;
+
+            const icon = DesktopEntries.heuristicLookup(name)?.icon;
+            if (icon) {
+                const path = Quickshell.iconPath(icon, "");
+                if (path)
+                    return path;
+            }
+        }
+
+        // The heuristic needs a desktop entry to exist and to be found; plenty of apps ship an
+        // icon themed under the very name they report as their class (firefox, kitty,
+        // org.remmina.Remmina) and lose out when the entry lookup misses for some unrelated
+        // reason. Asking the icon theme directly costs nothing and is right more often than not.
+        for (const name of names) {
+            if (!name)
+                continue;
+
+            const path = Quickshell.iconPath(name, "");
+            if (path)
+                return path;
+        }
+
+        // Nothing resolved on purpose, so the caller falls back to getAppCategoryIcon -- a glyph
+        // from the bundled symbol font always renders, where a themed name that is not in the
+        // current theme silently draws nothing at all.
+        return "";
+    }
+
     function getAppCategoryIcon(name: string, fallback: string): string {
         const match = matchIconRuleList(name, GlobalConfig.bar.workspaces.windowIcons);
         if (match)

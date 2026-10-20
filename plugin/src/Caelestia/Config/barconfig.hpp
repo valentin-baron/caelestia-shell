@@ -25,6 +25,7 @@ class BarPopouts : public settings::ObjectNode {
     CONFIG_NODE(BarPopouts, settings::ObjectNode)
 
     CONFIG_PROPERTY(bool, activeWindow, true)
+    CONFIG_PROPERTY(bool, windows, true)
     CONFIG_PROPERTY(bool, tray, true)
     CONFIG_PROPERTY(bool, statusIcons, true)
 };
@@ -93,6 +94,36 @@ class BarActiveWindow : public settings::ObjectNode {
     CONFIG_PROPERTY(bool, showOnHover, true)
 };
 
+class BarWindows : public settings::ObjectNode {
+    CONFIG_NODE(BarWindows, settings::ObjectNode)
+
+    CONFIG_PROPERTY(bool, background, false)
+    CONFIG_PROPERTY(bool, showMinimized, true)
+    // Whether each half lists a window per icon or collapses to one icon and a count. Open
+    // windows collapse by default: there can be a lot of them, the bar is a vertical sliver, and
+    // the popout one hover away is the place to read a list. Minimized ones expand by default for
+    // the opposite reasons -- there are rarely more than a few, and seeing at a glance what has
+    // been put away is most of the point of putting it away.
+    CONFIG_PROPERTY(bool, expandOpen, false)
+    CONFIG_PROPERTY(bool, expandMinimized, true)
+    // Per half, not in total, and only applies to whichever half is expanded -- so a pile of
+    // minimized windows cannot push the open ones off the bar. Everything over the cap is still
+    // in the popout; the bar just stops growing. 0 means no cap.
+    CONFIG_PROPERTY(int, maxIcons, 8)
+    // Icon overrides by window class, same shape as bar.tray.iconSubs: `image` is a path to an
+    // image file, `icon` a themed icon name, and the window is matched by `name` (exact) or
+    // `regex` the way bar.workspaces.windowIcons matches. Needed because a window's class is not
+    // a desktop entry ID and the heuristic that bridges them misses often -- see
+    // Icons.getWindowIcon.
+    CONFIG_GLOBAL_PROPERTY(QVariantList, iconSubs, {})
+    // Where minimized windows are parked. Hyprland has no minimize of its own, so a minimized
+    // window is one moved silently onto this special workspace, tagged `minimized:<seq>:<origin>`
+    // with the workspace it came from. Nothing ever toggles this workspace into view and the
+    // shell filters it out of everywhere it lists special workspaces -- which is why it has to be
+    // a workspace nothing else uses. See Hypr.minimize.
+    CONFIG_GLOBAL_PROPERTY(QString, minimizeWorkspace, u"special:minimized"_s)
+};
+
 class BarTrayIconSub : public settings::ObjectNode {
     CONFIG_NODE(BarTrayIconSub, settings::ObjectNode)
 
@@ -131,6 +162,7 @@ class BarConfig : public settings::ObjectNode {
     CONFIG_SUBOBJECT(BarPopouts, popouts)
     CONFIG_SUBOBJECT(BarWorkspaces, workspaces)
     CONFIG_SUBOBJECT(BarActiveWindow, activeWindow)
+    CONFIG_SUBOBJECT(BarWindows, windows)
     CONFIG_SUBOBJECT(BarTray, tray)
     CONFIG_SUBOBJECT(BarClock, clock)
     CONFIG_LIST(EntryList, statusIcons,
@@ -150,6 +182,7 @@ class BarConfig : public settings::ObjectNode {
             LIST_ENTRY(spacer, true),
             LIST_ENTRY(activeWindow, true),
             LIST_ENTRY(spacer, true),
+            LIST_ENTRY(windows, true),
             LIST_ENTRY(tray, true),
             LIST_ENTRY(clock, true),
             LIST_ENTRY(statusIcons, true),
