@@ -1,0 +1,4 @@
+#%PAM-1.0
+
+# Phone unlock, see modules/lock/Pam.qml. The script only exists on the desktop.
+auth    required    pam_exec.so     quiet /home/val/workspaces/esp32-rfid/host/rfid-auth

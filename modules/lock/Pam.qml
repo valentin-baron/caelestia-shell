@@ -23,6 +23,7 @@ Scope {
     readonly property alias passwd: passwd
     readonly property alias fprint: fprint
     readonly property alias howdy: howdy
+    readonly property alias rfid: rfid
 
     property string lockMessage
     property int state
@@ -88,7 +89,7 @@ Scope {
     }
 
     function clearTransientState(): void {
-        for (const obj of [root, fprint, howdy])
+        for (const obj of [root, fprint, howdy, rfid])
             if (obj.state !== Pam.MaxTries)
                 obj.state = Pam.None;
     }
@@ -162,6 +163,23 @@ Scope {
         maxTries: GlobalConfig.lock.maxHowdyTries
     }
 
+    // Phone unlock over NFC (~/workspaces/esp32-rfid, desktop only): rfid-auth waits for a tap
+    // and checks the phone's signature. Inert wherever the script, an enrolled key or the reader
+    // is missing -- which is every machine but the desktop.
+    ManualPamContext {
+        id: rfid
+
+        config: "rfid"
+        availCommand: ["sh", "-c", "test -x \"$HOME/workspaces/esp32-rfid/host/rfid-auth\" && test -s \"$HOME/.config/rfid-unlock/keys\" && test -e /dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0"]
+        retryOnFail: true
+        enabled: true
+        maxTries: 5
+        onAvailProcExited: {
+            if (rfid.canAttempt && !rfid.active)
+                rfid.start();
+        }
+    }
+
     Connections {
         function onResumed(): void {
             if (howdy.canAttempt && !howdy.active && GlobalConfig.lock.triggerHowdyOnWake)
@@ -178,6 +196,8 @@ Scope {
                 howdy.checkAvailable();
                 fprint.reset();
                 howdy.reset();
+                rfid.reset();
+                rfid.checkAvailable();
                 root.buffer = "";
                 root.state = Pam.None;
                 root.lockMessage = "";
@@ -187,6 +207,7 @@ Scope {
         function onUnlock(): void {
             fprint.abort();
             howdy.abort();
+            rfid.abort();
             passwd.abort();
         }
 
