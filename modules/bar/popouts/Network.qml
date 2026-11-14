@@ -472,7 +472,7 @@ ColumnLayout {
         visible: VPN.providers.length > 0
         Layout.preferredHeight: visible ? implicitHeight : 0
         label: {
-            const p = VPN.providers.find(p => p.providerId === VPN.selectedProvider);
+            const p = VPN.providers.find(p => p.id === VPN.selectedProvider);
             return p ? p.displayName : qsTr("VPN");
         }
         checked: VPN.connected
@@ -491,7 +491,8 @@ ColumnLayout {
             id: providerItem
 
             required property var modelData // QML types are annoying (causes null errors on destruction if typed correctly)
-            readonly property bool isSelected: modelData.providerId === VPN.selectedProvider
+            required property int index
+            readonly property bool isSelected: modelData.id === VPN.selectedProvider
 
             Layout.fillWidth: true
             Layout.rightMargin: Tokens.padding.extraSmall
@@ -518,7 +519,7 @@ ColumnLayout {
             StateLayer {
                 disabled: providerItem.isSelected
                 radius: Tokens.rounding.extraSmall
-                onClicked: VPN.setActiveProvider(providerItem.modelData.index)
+                onClicked: VPN.setActiveProvider(providerItem.index)
             }
 
             RowLayout {
