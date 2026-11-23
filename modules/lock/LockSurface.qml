@@ -26,6 +26,16 @@ WlSessionLockSurface {
     // Like the greeter: only the preferred monitor draws the pill; the rest stay plain
     // color. Typing works from any monitor -- every surface feeds the shared pam buffer.
     readonly property bool drawsPill: !palettes.pillScreen || palettes.pillScreen === (screen?.name ?? "")
+    // The pill screen shows a random wallswipe download (picked per lock, never one a screen
+    // is already showing); the input and buttons sit on it half transparent.
+    readonly property string randomWall: {
+        const showing = Quickshell.screens.map(q => Wallpapers.forScreen(q.name));
+        const pool = Wallpapers.list.filter(w => /^(wallhaven|unsplash|pexels)-/.test(w.name) && !showing.includes(w.path));
+        return pool.length ? pool[Math.floor(Math.random() * pool.length)].path : Wallpapers.forScreen(screen?.name ?? "");
+    }
+    function translucent(c: color, a: real): color {
+        return Qt.rgba(c.r, c.g, c.b, a);
+    }
 
     contentItem.Config.screen: screen.name
     contentItem.Tokens.screen: screen.name
@@ -53,16 +63,17 @@ WlSessionLockSurface {
         }
     }
 
-    // Screens without the pill show the wallpaper the slideshow gave them (the greeter does
-    // the same via sddm/mirror/backgrounds); the pill screen stays a flat palette field.
+    // Every screen shows a wallpaper (the greeter does the same via sddm/mirror/backgrounds):
+    // side screens the one the slideshow gave them, the pill screen a random one. The palette
+    // background shows only until the image has loaded.
     Image {
         anchors.fill: parent
-        visible: !root.drawsPill && status === Image.Ready
+        visible: status === Image.Ready
         asynchronous: true
         fillMode: Image.PreserveAspectCrop
         sourceSize: Qt.size(width, height)
         source: {
-            const path = root.drawsPill ? "" : Wallpapers.forScreen(root.screen?.name ?? "");
+            const path = root.drawsPill ? root.randomWall : Wallpapers.forScreen(root.screen?.name ?? "");
             return path ? "file://" + path : "";
         }
     }
@@ -99,7 +110,7 @@ WlSessionLockSurface {
         radius: 80
         visible: root.drawsPill
 
-        color: root.pal.inputBackground
+        color: root.translucent(root.pal.inputBackground, 0.5)
         border.width: 4
         // The greeter signals failure with the border only, and keeps it unchanged while
         // the attempt is being checked.
@@ -256,7 +267,7 @@ WlSessionLockSurface {
         Rectangle {
             anchors.fill: parent
             radius: width / 2
-            color: btnMouse.containsMouse ? root.pal.inputBackground : "transparent"
+            color: root.translucent(root.pal.inputBackground, btnMouse.containsMouse ? 0.8 : 0.5)
             border.width: 2
             border.color: btnMouse.containsMouse ? root.pal.inputBorder : root.pal.mutedText
 
