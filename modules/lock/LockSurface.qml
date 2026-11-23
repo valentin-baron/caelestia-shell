@@ -6,28 +6,24 @@ import Quickshell.Wayland
 import Caelestia.Config
 import qs.services
 
-// Clone of the SDDM greeter (sddm/mirror in the hypr config repo): flat background, one huge
-// centered password pill, the same circular power buttons with their hover hints and
-// F10/F11/F12 shortcuts -- and where the greeter picks a session, a line saying the session
-// is locked. The one extra the greeter lacks is the palette button under the pill (same
-// button style), cycling live through the combos Palettes.qml carries (or the lock IPC
-// target's cyclePalette). Unlike the hyprlock version this replaced, a swap is just a
-// property change: everything recolors in place, no process restart.
+// Clone of the SDDM greeter (sddm/mirror in the hypr config repo): a wallpaper on every
+// screen, one huge centered password pill, the same circular power buttons with their hover
+// hints and F10/F11/F12 shortcuts -- and where the greeter picks a session, a line saying the
+// session is locked. Controls are transparent, drawn in the inverse of the wallpaper behind
+// them (see `ink`), so they read on any picture.
 WlSessionLockSurface {
     id: root
 
     required property WlSessionLock lock
     required property Pam pam
-    required property Palettes palettes
-
-    readonly property var pal: palettes.current
+    required property PillScreen pillScreen
     // The greeter's font, from its theme.conf
     readonly property string fontFamily: "CaskaydiaCove Nerd Font Mono"
     // Like the greeter: only the preferred monitor draws the pill; the rest stay plain
     // color. Typing works from any monitor -- every surface feeds the shared pam buffer.
-    readonly property bool drawsPill: !palettes.pillScreen || palettes.pillScreen === (screen?.name ?? "")
+    readonly property bool drawsPill: !pillScreen.name || pillScreen.name === (screen?.name ?? "")
     // The pill screen shows a random wallswipe download (picked per lock, never one a screen
-    // is already showing); the input and buttons sit on it half transparent.
+    // is already showing).
     readonly property string randomWall: {
         const showing = Quickshell.screens.map(q => Wallpapers.forScreen(q.name));
         const pool = Wallpapers.list.filter(w => /^(wallhaven|unsplash|pexels)-/.test(w.name) && !showing.includes(w.path));
@@ -37,10 +33,29 @@ WlSessionLockSurface {
         return Qt.rgba(c.r, c.g, c.b, a);
     }
 
+    // Average wallpaper colour behind the pill, the status line and the power row, sampled
+    // by `probe` once the picture is up; black (so white controls) until then.
+    property color pillBehind: "black"
+    property color textBehind: "black"
+    property color cornerBehind: "black"
+    readonly property color pillInk: ink(pillBehind)
+    readonly property color textInk: ink(textBehind)
+    readonly property color cornerInk: ink(cornerBehind)
+    readonly property color errorInk: "#ff4d5e"
+
+    // The inverse of the colour behind, pushed most of the way to white or black (whichever
+    // is further from that colour) -- a plain inverse of a mid-grey is mid-grey.
+    function ink(behind: color): color {
+        const light = 0.2126 * behind.r + 0.7152 * behind.g + 0.0722 * behind.b > 0.5;
+        const to = light ? 0 : 1;
+        const mix = c => (1 - c) * 0.35 + to * 0.65;
+        return Qt.rgba(mix(behind.r), mix(behind.g), mix(behind.b), 1);
+    }
+
     contentItem.Config.screen: screen.name
     contentItem.Tokens.screen: screen.name
 
-    color: pal.background
+    color: "black"
 
     Connections {
         // The greeter has no animations (the hyprlock version disabled its own to match),
@@ -52,21 +67,12 @@ WlSessionLockSurface {
         target: root.lock
     }
 
-    Rectangle {
-        anchors.fill: parent
-        color: root.pal.background
-
-        Behavior on color {
-            ColorAnimation {
-                duration: 250
-            }
-        }
-    }
-
     // Every screen shows a wallpaper (the greeter does the same via sddm/mirror/backgrounds):
-    // side screens the one the slideshow gave them, the pill screen a random one. The palette
-    // background shows only until the image has loaded.
+    // side screens the one the slideshow gave them, the pill screen a random one. Black shows
+    // only until the image has loaded.
     Image {
+        id: wall
+
         anchors.fill: parent
         visible: status === Image.Ready
         asynchronous: true
@@ -75,6 +81,69 @@ WlSessionLockSurface {
         source: {
             const path = root.drawsPill ? root.randomWall : Wallpapers.forScreen(root.screen?.name ?? "");
             return path ? "file://" + path : "";
+        }
+        onStatusChanged: {
+            if (status === Image.Ready && root.drawsPill)
+                grabber.start();
+        }
+    }
+
+    // Samples the displayed wallpaper (crop included): grabs it shrunk to 32x18, then
+    // averages the regions the controls sit on. The grab is refused until the surface is
+    // mapped, hence the retry; and Canvas can't open a grab's own itemgrabber: URL (nor draw
+    // an Image item -- comes out black), hence the round trip through a file.
+    Timer {
+        id: grabber
+
+        interval: 200
+        repeat: true
+        onTriggered: {
+            const ok = wall.grabToImage(r => {
+                const file = `${Quickshell.env("XDG_RUNTIME_DIR")}/lock-probe-${root.screen?.name ?? "x"}.png`;
+                if (r.saveToFile(file))
+                    probe.load("file://" + file);
+            }, Qt.size(probe.width, probe.height));
+            if (ok)
+                stop();
+        }
+    }
+
+    // Has to stay in the scene to paint, hence opacity rather than visible.
+    Canvas {
+        id: probe
+
+        property url grabbed
+
+        function load(url: url): void {
+            if (grabbed === url)
+                unloadImage(url);
+            grabbed = url;
+            loadImage(url);
+        }
+
+        function average(x: int, y: int, w: int, h: int): color {
+            const d = getContext("2d").getImageData(x, y, w, h).data;
+            let r = 0, g = 0, b = 0;
+            for (let i = 0; i < d.length; i += 4) {
+                r += d[i];
+                g += d[i + 1];
+                b += d[i + 2];
+            }
+            const n = d.length / 4 * 255;
+            return Qt.rgba(r / n, g / n, b / n, 1);
+        }
+
+        width: 32
+        height: 18
+        opacity: 0
+        onImageLoaded: requestPaint()
+        onPaint: {
+            if (!isImageLoaded(grabbed))
+                return;
+            getContext("2d").drawImage(grabbed, 0, 0, width, height);
+            root.pillBehind = average(8, 7, 16, 5);
+            root.textBehind = average(12, 16, 8, 2);
+            root.cornerBehind = average(26, 15, 6, 3);
         }
     }
 
@@ -110,17 +179,12 @@ WlSessionLockSurface {
         radius: 80
         visible: root.drawsPill
 
-        color: root.translucent(root.pal.inputBackground, 0.5)
+        color: "transparent"
         border.width: 4
         // The greeter signals failure with the border only, and keeps it unchanged while
         // the attempt is being checked.
-        border.color: root.pam.state === Pam.None ? root.pal.inputBorder : root.pal.errorBorder
+        border.color: root.pam.state === Pam.None ? root.pillInk : root.errorInk
 
-        Behavior on color {
-            ColorAnimation {
-                duration: 250
-            }
-        }
         Behavior on border.color {
             ColorAnimation {
                 duration: 250
@@ -145,7 +209,7 @@ WlSessionLockSurface {
                     width: dots.dotSize
                     height: dots.dotSize
                     radius: dots.dotSize / 2
-                    color: root.pal.inputText
+                    color: root.pillInk
 
                     Behavior on color {
                         ColorAnimation {
@@ -155,19 +219,6 @@ WlSessionLockSurface {
                 }
             }
         }
-    }
-
-    // Palette button: steps to the next palette combo. The greeter has no such button;
-    // this one wears the same circle as its power buttons so nothing looks foreign.
-    GreeterButton {
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.verticalCenter: parent.verticalCenter
-        anchors.verticalCenterOffset: 180
-        visible: root.drawsPill
-
-        glyph: "󰏘"
-        tip: "Palette · Super + Pause"
-        action: () => root.palettes.cycle()
     }
 
     // The greeter's power row: same corner, margins, glyphs, and hover hints.
@@ -205,7 +256,7 @@ WlSessionLockSurface {
         visible: root.drawsPill
 
         text: "Hyprland is locked"
-        color: root.pal.mutedText
+        color: root.textInk
         font.family: root.fontFamily
         font.pointSize: 14
 
@@ -225,30 +276,30 @@ WlSessionLockSurface {
         visible: root.drawsPill && text !== ""
 
         text: root.pam.lockMessage
-        color: root.pal.mutedText
+        color: root.pillInk
         font.family: root.fontFamily
         font.pointSize: 14
         horizontalAlignment: Text.AlignHCenter
     }
 
     // The greeter's Bubble and PowerButton (sddm/mirror/Main.qml), cloned 1:1 -- change one,
-    // change both. The only additions are the color Behaviors, so the buttons recolor with
-    // the rest of the surface when the palette swaps.
+    // change both. The only additions are the color Behaviors, so the buttons fade to their
+    // colour once the wallpaper has been sampled.
     component Bubble: Rectangle {
         property alias label: bubbleText.text
 
         implicitWidth: bubbleText.implicitWidth + 28
         implicitHeight: bubbleText.implicitHeight + 14
         radius: height / 2
-        color: root.pal.inputBackground
+        color: root.translucent(root.cornerBehind, 0.85)
         border.width: 1
-        border.color: root.pal.inputBorder
+        border.color: root.cornerInk
 
         Text {
             id: bubbleText
 
             anchors.centerIn: parent
-            color: root.pal.inputText
+            color: root.cornerInk
             font.family: root.fontFamily
             font.pointSize: 12
         }
@@ -267,9 +318,9 @@ WlSessionLockSurface {
         Rectangle {
             anchors.fill: parent
             radius: width / 2
-            color: root.translucent(root.pal.inputBackground, btnMouse.containsMouse ? 0.8 : 0.5)
+            color: root.translucent(root.cornerInk, btnMouse.containsMouse ? 0.2 : 0)
             border.width: 2
-            border.color: btnMouse.containsMouse ? root.pal.inputBorder : root.pal.mutedText
+            border.color: root.cornerInk
 
             Behavior on color {
                 ColorAnimation {
@@ -286,7 +337,7 @@ WlSessionLockSurface {
         Text {
             anchors.centerIn: parent
             text: btn.glyph
-            color: btnMouse.containsMouse ? root.pal.inputText : root.pal.mutedText
+            color: root.cornerInk
             font.family: root.fontFamily
             font.pointSize: 22
 
