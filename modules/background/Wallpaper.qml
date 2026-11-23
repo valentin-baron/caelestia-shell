@@ -12,7 +12,8 @@ import qs.utils
 Item {
     id: root
 
-    property string source: Wallpapers.current
+    property string screenName
+    property string source: Wallpapers.forScreen(screenName)
     property CachingImage current
     property bool completed
 

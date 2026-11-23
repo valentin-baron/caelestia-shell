@@ -22,6 +22,18 @@ Searcher {
     property bool previewColourLock
     property bool pendingPreviewClear
 
+    // Per-monitor wallpapers set by external tools (e.g. a slideshow) in screens.json:
+    // {"base": <path>, "screens": {"DP-1": <path>, ...}}. Only honoured while the global
+    // wallpaper is still `base`, so picking one by hand applies everywhere again.
+    readonly property string screensPath: `${Paths.state}/wallpaper/screens.json`
+    property var screenWalls: ({})
+
+    function forScreen(name: string): string {
+        if (showPreview)
+            return previewPath;
+        return (screenWalls.base === actualCurrent && screenWalls.screens?.[name]) || actualCurrent;
+    }
+
     function getCategoryFor(w: FileSystemEntry): string {
         let category = w.parentDir.slice(Paths.wallsdir.length + 1);
         if (category.includes("/"))
@@ -80,6 +92,21 @@ Searcher {
         }
 
         target: "wallpaper"
+    }
+
+    FileView {
+        path: root.screensPath
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: {
+            try {
+                root.screenWalls = JSON.parse(text());
+            } catch (e) {
+                root.screenWalls = {};
+            }
+        }
+        onLoadFailed: root.screenWalls = {}
     }
 
     FileView {
