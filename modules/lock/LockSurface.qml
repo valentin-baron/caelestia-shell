@@ -4,6 +4,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import Caelestia.Config
+import qs.services
 
 // Clone of the SDDM greeter (sddm/mirror in the hypr config repo): flat background, one huge
 // centered password pill, the same circular power buttons with their hover hints and
@@ -49,6 +50,20 @@ WlSessionLockSurface {
             ColorAnimation {
                 duration: 250
             }
+        }
+    }
+
+    // Screens without the pill show the wallpaper the slideshow gave them (the greeter does
+    // the same via sddm/mirror/backgrounds); the pill screen stays a flat palette field.
+    Image {
+        anchors.fill: parent
+        visible: !root.drawsPill && status === Image.Ready
+        asynchronous: true
+        fillMode: Image.PreserveAspectCrop
+        sourceSize: Qt.size(width, height)
+        source: {
+            const path = root.drawsPill ? "" : Wallpapers.forScreen(root.screen?.name ?? "");
+            return path ? "file://" + path : "";
         }
     }
 
