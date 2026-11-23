@@ -159,7 +159,7 @@ WlSessionLockSurface {
             action: () => Quickshell.execDetached(["systemctl", "suspend"])
         }
         GreeterButton {
-            glyph: ""
+            glyph: ""
             tip: "Reboot · F12"
             action: () => Quickshell.execDetached(["systemctl", "reboot"])
         }
